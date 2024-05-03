@@ -1,0 +1,89 @@
+#include <IRremote.h>  // Library for IR communication
+#include <Wire.h>      // Library for I2C communication
+#include <RTClib.h>    // Library for RTC module
+
+// Pin definitions
+#define LM35_PIN A0
+#define PIR_PIN 2
+#define IR_LED_PIN 3
+#define IR_RECEIVER_PIN 4
+
+// Define IR codes for controlling the air conditioner
+// Replace these with the actual IR codes captured from your AC remote
+#define IR_POWER_ON 0xFFA25D
+#define IR_POWER_OFF 0xFF629D
+// Add more IR codes for different AC functions as needed
+
+// Initialize objects
+IRsend irsend;
+IRrecv irrecv(IR_RECEIVER_PIN);
+decode_results results;
+RTC_DS3231 rtc;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(PIR_PIN, INPUT);
+  irrecv.enableIRIn(); // Start the IR receiver
+  if (!rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }
+}
+
+void loop() {
+  // Read temperature from LM35 sensor
+  float temperature = readTemperature();
+
+  // Read presence from PIR motion sensor
+  bool presence = detectPresence();
+
+  // Get current time from RTC
+  DateTime now = rtc.now();
+
+  // Adjust AC settings based on temperature, presence, and time
+  adjustACSettings(temperature, presence, now);
+
+  // Process received IR signals
+  processIRSignals();
+}
+
+// Function to read temperature from LM35 sensor
+float readTemperature() {
+  int sensorValue = analogRead(LM35_PIN);
+  float temperature = (sensorValue * 0.48875855327); // 10mV per degree Celsius for LM35
+  return temperature;
+}
+
+// Function to detect presence using PIR motion sensor
+bool detectPresence() {
+  return digitalRead(PIR_PIN);
+}
+
+// Function to adjust AC settings based on temperature, presence, and time
+void adjustACSettings(float temperature, bool presence, DateTime now) {
+  // Logic to adjust AC settings based on temperature, presence, and time
+  // For example, you can use if statements to send appropriate IR signals
+  // based on predefined temperature thresholds, presence status, and time of day.
+  if (presence) {
+    if (temperature > 25) {
+      // Send IR signal to turn on AC and set temperature to a comfortable level
+      irsend.sendNEC(IR_POWER_ON, 32);
+    } else {
+      // Send IR signal to turn off AC
+      irsend.sendNEC(IR_POWER_OFF, 32);
+    }
+  } else {
+    // Send IR signal to turn off AC if no presence detected
+    irsend.sendNEC(IR_POWER_OFF, 32);
+  }
+}
+
+// Function to process received IR signals
+void processIRSignals() {
+  if (irrecv.decode(&results)) {
+    // Print received IR code to serial monitor
+    Serial.println(results.value, HEX);
+    // Add logic to process received IR codes if needed
+    irrecv.resume(); // Receive the next value
+  }
+}
