@@ -1,12 +1,22 @@
 #include <IRremote.h>  // Library for IR communication
 #include <Wire.h>      // Library for I2C communication
 #include <RTClib.h>    // Library for RTC module
+#include <LiquidCrystal.h>  // Library for LCD
 
 // Pin definitions
-#define LM35_PIN A0
+#define LM35_AC_PIN A0
+#define LM35_SURROUNDING_PIN A1
 #define PIR_PIN 2
 #define IR_LED_PIN 3
 #define IR_RECEIVER_PIN 4
+#define LCD_RS 8
+#define LCD_ENABLE 9
+#define LCD_D4 10
+#define LCD_D5 11
+#define LCD_D6 12
+#define LCD_D7 13
+#define LCD_COLUMNS 16
+#define LCD_ROWS 2
 
 // Define IR codes for controlling the air conditioner
 // Replace these with the actual IR codes captured from your AC remote
@@ -19,37 +29,48 @@ IRsend irsend;
 IRrecv irrecv(IR_RECEIVER_PIN);
 decode_results results;
 RTC_DS3231 rtc;
+LiquidCrystal lcd(LCD_RS, LCD_ENABLE, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
 
 void setup() {
   Serial.begin(9600);
   pinMode(PIR_PIN, INPUT);
   irrecv.enableIRIn(); // Start the IR receiver
-  if (!rtc.begin()) {
-    Serial.println("Couldn't find RTC");
-    while (1);
-  }
+  lcd.begin(LCD_COLUMNS, LCD_ROWS);
 }
 
 void loop() {
-  // Read temperature from LM35 sensor
-  float temperature = readTemperature();
+  // Read temperatures
+  float acTemperature = readTemperature(LM35_AC_PIN);
+  float surroundingTemperature = readTemperature(LM35_SURROUNDING_PIN);
 
   // Read presence from PIR motion sensor
   bool presence = detectPresence();
+
+  // Update LCD display
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("AC Temp: ");
+  lcd.print(acTemperature);
+  lcd.print(" C");
+
+  lcd.setCursor(0, 1);
+  lcd.print("Room Temp: ");
+  lcd.print(surroundingTemperature);
+  lcd.print(" C");
 
   // Get current time from RTC
   DateTime now = rtc.now();
 
   // Adjust AC settings based on temperature, presence, and time
-  adjustACSettings(temperature, presence, now);
+  adjustACSettings(acTemperature, presence, now);
 
   // Process received IR signals
   processIRSignals();
 }
 
 // Function to read temperature from LM35 sensor
-float readTemperature() {
-  int sensorValue = analogRead(LM35_PIN);
+float readTemperature(int sensorPin) {
+  int sensorValue = analogRead(sensorPin);
   float temperature = (sensorValue * 0.48875855327); // 10mV per degree Celsius for LM35
   return temperature;
 }
